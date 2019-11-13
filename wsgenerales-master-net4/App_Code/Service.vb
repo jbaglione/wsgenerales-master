@@ -117,7 +117,27 @@ Public Class Service
 
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
+    Public Function GetLatLong(ByVal direccion As String) As String
+        GetLatLong = Nothing
+        Dim googleProvider As String = WebConfigurationManager.AppSettings.Get("googleProvider")
+        Dim hereProvider As String = WebConfigurationManager.AppSettings.Get("hereProvider")
+
+        Dim url As String = Me.GetUrlProvider(direccion)
+        Dim res As Boolean = url.Contains(hereProvider)
+
+        If (url.Contains(googleProvider)) Then
+            GetLatLong = GetByGoogle(url)
+        ElseIf url.Contains(hereProvider) Then
+            GetLatLong = GetByHere(url)
+        Else
+            GetLatLong = "0/0"
+        End If
+
+        Return GetLatLong
+    End Function
+
+    <WebMethod()>
     Public Function GetDireccion(ByVal lat As String, ByVal lng As String) As String
 
         GetDireccion = Nothing
@@ -167,17 +187,37 @@ Public Class Service
 
     End Function
 
-    <WebMethod()> _
-    Public Function GetLatLong(ByVal direccion As String) As String
+    Private Function GetByHere(url As String) As String
+        Dim request As HttpWebRequest
+        Dim response As HttpWebResponse = Nothing
+        Dim reader As StreamReader
+        Try
+            request = DirectCast(WebRequest.Create(url), HttpWebRequest)
+            response = DirectCast(request.GetResponse(), HttpWebResponse)
+            reader = New StreamReader(response.GetResponseStream())
 
-        GetLatLong = ""
+            Dim rawresp As String = reader.ReadToEnd()
+
+            Dim outer As JToken = JToken.Parse(rawresp)
+            Dim inner As JObject = outer("Response")
+            Dim view As List(Of JToken) = inner.Item("View").ToList
+            Dim result As JToken = view(0).Item("Result")
+            Dim location As JToken = result(0).Item("Location")
+            Dim navigationPosition As JToken = location.Item("NavigationPosition")
+            Dim latitude As JToken = navigationPosition(0)("Latitude")
+            Dim longitude As JToken = navigationPosition(0)("Longitude")
+
+            GetByHere = latitude.ToString + "/" + longitude.ToString
+        Catch ex As WebException
+            GetByHere = "0/0"
+        End Try
+    End Function
+
+    Private Function GetByGoogle(url As String) As String
+        Dim GetLatLong As String = ""
 
         Try
             Dim strResultados As String = ""
-
-            Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
-
-            Dim url As String = "https://maps.googleapis.com/maps/api/geocode/xml?address=" & direccion & "&key=" & googleMapsApiKey & "&sensor=false"
             Dim reader As XmlTextReader = New XmlTextReader(url)
             Dim status As String = ""
 
@@ -222,6 +262,30 @@ Public Class Service
 
         End Try
 
+        Return GetLatLong
+    End Function
+
+    Private Function GetUrlProvider(ByVal pDireccion As String) As String
+        GetUrlProvider = ""
+        Dim googleProvider As String = WebConfigurationManager.AppSettings.Get("googleProvider")
+        Dim hereProvider As String = WebConfigurationManager.AppSettings.Get("hereProvider")
+        Try
+            'Distance
+            Randomize()
+            Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
+
+            Select Case value
+                Case 1
+                    Dim strResultados As String = ""
+                    Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
+                    GetUrlProvider = googleProvider & pDireccion & "&key=" & googleMapsApiKey & "&sensor=false"
+                Case Else
+                    GetUrlProvider = hereProvider & "app_id=kzobkWkoXdvt3kwYJ2c2&app_code=RZKiLMM1kl3pHhyTI-3AXA&searchtext=" & pDireccion
+            End Select
+
+        Catch ex As Exception
+
+        End Try
     End Function
 
     '<WebMethod()>
