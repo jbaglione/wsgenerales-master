@@ -14,9 +14,9 @@ Imports System.Data
 
 ' Para permitir que se llame a este servicio Web desde un script, usando ASP.NET AJAX, quite la marca de comentario de la siguiente línea.
 ' <System.Web.Script.Services.ScriptService()> _
-<WebService(Namespace:="http://tempuri.org/")> _
-<WebServiceBinding(ConformsTo:=WsiProfiles.BasicProfile1_1)> _
-<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
+<WebService(Namespace:="http://tempuri.org/")>
+<WebServiceBinding(ConformsTo:=WsiProfiles.BasicProfile1_1)>
+<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
 Public Class Service
 
     Inherits System.Web.Services.WebService
@@ -29,18 +29,56 @@ Public Class Service
     Private myCmdMod As SqlCommand
     Private results As String
 
-    <WebMethod()> _
+    Private googleProviderDist As String = WebConfigurationManager.AppSettings.Get("googleProviderDist")
+    Private hereProviderDist As String = WebConfigurationManager.AppSettings.Get("hereProviderDist")
+    Private googleProviderGeo As String = WebConfigurationManager.AppSettings.Get("googleProviderGeo")
+    Private hereProviderGeo As String = WebConfigurationManager.AppSettings.Get("hereProviderGeo")
+
+    <WebMethod()>
     Public Function GetDistanciaTiempo(ByVal latMov As String, ByVal lngMov As String, ByVal latDst As String, ByVal lngDst As String) As String
 
         GetDistanciaTiempo = Nothing
 
+        Dim url As String = Me.GetDistUrlProvider(latMov, lngMov, latDst, lngDst)
+
+        If (url.Contains(googleProviderDist)) Then
+            GetDistanciaTiempo = GetDistByGoogle(url)
+        ElseIf url.Contains(hereProviderDist) Then
+            GetDistanciaTiempo = GetDistByHere(url)
+        Else
+            GetDistanciaTiempo = "0/0"
+        End If
+
+    End Function
+
+    Private Function GetDistUrlProvider(ByVal pLatMov As String, ByVal pLngMov As String, ByVal pLatDst As String, ByVal pLngDst As String) As String
+        GetDistUrlProvider = ""
+        Try
+            'Distance
+            Randomize()
+            Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
+            Select Case value
+                Case 1
+                    Dim strResultados As String = ""
+                    Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
+                    GetDistUrlProvider = googleProviderDist & pLatMov & "," & pLngMov & "&destinations=" & pLatDst & "," & pLngDst & "&mode=driving&language=fr-FR&key=" & googleMapsApiKey & "&sensor=false"
+                Case Else
+                    Dim hereMapsAppId As String = Me.getHereMapsAppId()
+                    Dim hereMapsAppCode As String = Me.getHereMapsAppCode()
+                    'GetDistUrlProvider = hereProviderDist & "app_id=" & hereMapsAppId & "&app_code=" & hereMapsAppCode & "&waypoint0=geo!" & pLatMov & "," & pLngMov & "&waypoint1=geo!" & pLatDst & "," & pLngDst & "&mode=fastest;car;traffic:disabled"
+                    GetDistUrlProvider = hereProviderDist & "app_id=" & hereMapsAppId & "&app_code=" & hereMapsAppCode & "&start0=" & pLatMov & "," & pLngMov & "&destination0=" & pLatDst & "," & pLngDst & "&mode=fastest;car;traffic:disabled&summaryAttributes=tt,di"
+            End Select
+
+        Catch ex As Exception
+
+        End Try
+    End Function
+
+    Private Function GetDistByGoogle(url As String) As String
+        GetDistByGoogle = Nothing
+        Dim status As String = ""
         Dim tiempo As String = ""
         Dim distancia As String = ""
-        Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
-
-        Dim url As String = "https://maps.googleapis.com/maps/api/distancematrix/xml?origins=" & latMov & "," & lngMov & "&destinations=" & latDst & "," & lngDst & "&mode=driving&language=fr-FR&key=" & googleMapsApiKey & "&sensor=false"
-
-        Dim status As String = ""
 
         Try
             Dim m_xmld As XmlDocument
@@ -48,9 +86,7 @@ Public Class Service
             Dim m_node As XmlNode
 
             m_xmld = New XmlDocument()
-
             m_xmld.Load(url)
-
             m_nodelist = m_xmld.SelectNodes("/DistanceMatrixResponse/status")
 
             For Each m_node In m_nodelist
@@ -77,59 +113,53 @@ Public Class Service
 
                 Next
 
-                GetDistanciaTiempo = distancia & "/" & tiempo
+                GetDistByGoogle = distancia & "/" & tiempo
 
             Else
-
-                GetDistanciaTiempo = "0/0"
+                GetDistByGoogle = "0/0"
             End If
 
         Catch errorVariable As Exception
-
             Console.Write(errorVariable.ToString())
-
         End Try
-
     End Function
 
-    Private Function getGoogleMapsApiKey() As String
-
-        getGoogleMapsApiKey = ""
-
+    Private Function GetDistByHere(url As String) As String
+        Dim request As HttpWebRequest
+        Dim response As HttpWebResponse = Nothing
+        Dim reader As StreamReader
         Try
+            request = DirectCast(WebRequest.Create(url), HttpWebRequest)
+            response = DirectCast(request.GetResponse(), HttpWebResponse)
+            reader = New StreamReader(response.GetResponseStream())
 
-            Dim googleMapsApiKey As String = WebConfigurationManager.AppSettings.Get("googleMapsApiKey")
-            Dim googleMapsApiKey2 As String = WebConfigurationManager.AppSettings.Get("googleMapsApiKey2")
-            Dim googleMapsApiKey3 As String = WebConfigurationManager.AppSettings.Get("googleMapsApiKey3")
+            Dim rawresp As String = reader.ReadToEnd()
 
-            Randomize()
-            Dim value As Integer = CInt(Int((3 * Rnd()) + 1))
-
-            Select Case value
-                Case 2 : getGoogleMapsApiKey = googleMapsApiKey2
-                Case 3 : getGoogleMapsApiKey = googleMapsApiKey3
-                Case Else : getGoogleMapsApiKey = googleMapsApiKey
-            End Select
-
-        Catch ex As Exception
-
+            Dim outer As JToken = JToken.Parse(rawresp)
+            Dim inner As JObject = outer("response")
+            Dim matrixEntry As List(Of JToken) = inner.Item("matrixEntry").ToList
+            Dim summary As JToken = matrixEntry(0).Item("summary")
+            Dim distance As JToken = summary.Item("distance")
+            Dim travelTime As JToken = summary.Item("travelTime")
+            Dim dist As String = Math.Round((Convert.ToInt64(distance) / 1000), 2).ToString + " km"
+            Dim time As String = Math.Round((Convert.ToInt64(travelTime) / 60), 0).ToString + " minutes"
+            GetDistByHere = dist + "/" + time
+        Catch ex As WebException
+            GetDistByHere = "0/0"
         End Try
-
     End Function
+
 
     <WebMethod()>
     Public Function GetLatLong(ByVal direccion As String) As String
         GetLatLong = Nothing
-        Dim googleProvider As String = WebConfigurationManager.AppSettings.Get("googleProvider")
-        Dim hereProvider As String = WebConfigurationManager.AppSettings.Get("hereProvider")
 
-        Dim url As String = Me.GetUrlProvider(direccion)
-        Dim res As Boolean = url.Contains(hereProvider)
+        Dim url As String = Me.GetGeoUrlProvider(direccion)
 
-        If (url.Contains(googleProvider)) Then
-            GetLatLong = GetByGoogle(url)
-        ElseIf url.Contains(hereProvider) Then
-            GetLatLong = GetByHere(url)
+        If (url.Contains(googleProviderGeo)) Then
+            GetLatLong = GetGeoByGoogle(url)
+        ElseIf url.Contains(hereProviderGeo) Then
+            GetLatLong = GetGeoByHere(url)
         Else
             GetLatLong = "0/0"
         End If
@@ -137,57 +167,31 @@ Public Class Service
         Return GetLatLong
     End Function
 
-    <WebMethod()>
-    Public Function GetDireccion(ByVal lat As String, ByVal lng As String) As String
+    Private Function GetGeoUrlProvider(ByVal pDireccion As String) As String
+        GetGeoUrlProvider = ""
 
-        GetDireccion = Nothing
-        Dim strResultados As String = ""
-        Dim url As String = "http://maps.googleapis.com/maps/api/geocode/xml?address=" & lat & "," & lng & "&sensor=false"
-        Dim status As String = ""
         Try
-            Dim m_xmld As XmlDocument
-            Dim m_nodelist As XmlNodeList
-            Dim m_node As XmlNode
+            'Distance
+            Randomize()
+            Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
 
-            m_xmld = New XmlDocument()
+            Select Case value
+                Case 1
+                    Dim strResultados As String = ""
+                    Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
+                    GetGeoUrlProvider = googleProviderGeo & pDireccion & "&key=" & googleMapsApiKey & "&sensor=false"
+                Case Else
+                    Dim hereMapsAppId As String = Me.getHereMapsAppId()
+                    Dim hereMapsAppCode As String = Me.getHereMapsAppCode()
+                    GetGeoUrlProvider = hereProviderGeo & "app_id=" & hereMapsAppId & "&app_code=" & hereMapsAppCode & "&searchtext=" & pDireccion
+            End Select
 
-            m_xmld.Load(url)
-
-            m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/status")
-
-            For Each m_node In m_nodelist
-
-                status = m_node.ChildNodes.Item(0).InnerText
-                MsgBox(status)
-
-            Next
-
-            If status = "OK" Then
-
-                m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/result/formatted_address")
-
-                For Each m_node In m_nodelist
-
-                    Dim dire = m_node.ChildNodes.Item(0).InnerText
-
-                    GetDireccion = dire
-
-                Next
-
-            Else
-                GetDireccion = "0"
-
-            End If
-        Catch errorVariable As Exception
-
-            Console.Write(errorVariable.ToString())
+        Catch ex As Exception
 
         End Try
-
-
     End Function
 
-    Private Function GetByHere(url As String) As String
+    Private Function GetGeoByHere(url As String) As String
         Dim request As HttpWebRequest
         Dim response As HttpWebResponse = Nothing
         Dim reader As StreamReader
@@ -207,13 +211,13 @@ Public Class Service
             Dim latitude As JToken = navigationPosition(0)("Latitude")
             Dim longitude As JToken = navigationPosition(0)("Longitude")
 
-            GetByHere = latitude.ToString + "/" + longitude.ToString
+            GetGeoByHere = latitude.ToString + "/" + longitude.ToString
         Catch ex As WebException
-            GetByHere = "0/0"
+            GetGeoByHere = "0/0"
         End Try
     End Function
 
-    Private Function GetByGoogle(url As String) As String
+    Private Function GetGeoByGoogle(url As String) As String
         Dim GetLatLong As String = ""
 
         Try
@@ -265,27 +269,127 @@ Public Class Service
         Return GetLatLong
     End Function
 
-    Private Function GetUrlProvider(ByVal pDireccion As String) As String
-        GetUrlProvider = ""
-        Dim googleProvider As String = WebConfigurationManager.AppSettings.Get("googleProvider")
-        Dim hereProvider As String = WebConfigurationManager.AppSettings.Get("hereProvider")
+
+#Region "Get_Keys"
+    Private Function getGoogleMapsApiKey() As String
+
+        getGoogleMapsApiKey = ""
+
         Try
-            'Distance
+
+            Dim googleMapsApiKey As String = WebConfigurationManager.AppSettings.Get("googleMapsApiKey")
+            Dim googleMapsApiKey2 As String = WebConfigurationManager.AppSettings.Get("googleMapsApiKey2")
+
             Randomize()
             Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
 
             Select Case value
-                Case 1
-                    Dim strResultados As String = ""
-                    Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
-                    GetUrlProvider = googleProvider & pDireccion & "&key=" & googleMapsApiKey & "&sensor=false"
-                Case Else
-                    GetUrlProvider = hereProvider & "app_id=kzobkWkoXdvt3kwYJ2c2&app_code=RZKiLMM1kl3pHhyTI-3AXA&searchtext=" & pDireccion
+                Case 1 : getGoogleMapsApiKey = googleMapsApiKey
+                Case 2 : getGoogleMapsApiKey = googleMapsApiKey2
             End Select
 
         Catch ex As Exception
 
         End Try
+
+    End Function
+
+    Private Function getHereMapsAppId() As String
+
+        getHereMapsAppId = ""
+
+        Try
+
+            Dim hereMapsAppId As String = WebConfigurationManager.AppSettings.Get("hereMapsAppId")
+            Dim hereMapsAppId2 As String = WebConfigurationManager.AppSettings.Get("hereMapsAppId2")
+
+            Randomize()
+            Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
+
+            Select Case value
+                Case 1 : getHereMapsAppId = hereMapsAppId
+                Case 2 : getHereMapsAppId = hereMapsAppId2
+            End Select
+
+        Catch ex As Exception
+
+        End Try
+
+    End Function
+
+    Private Function getHereMapsAppCode() As String
+
+        getHereMapsAppCode = ""
+
+        Try
+
+            Dim hereMapsAppCode As String = WebConfigurationManager.AppSettings.Get("hereMapsAppCode")
+            Dim hereMapsAppCode2 As String = WebConfigurationManager.AppSettings.Get("hereMapsAppCode2")
+
+            Randomize()
+            Dim value As Integer = CInt(Int((2 * Rnd()) + 1))
+
+            Select Case value
+                Case 1 : getHereMapsAppCode = hereMapsAppCode
+                Case 2 : getHereMapsAppCode = hereMapsAppCode2
+            End Select
+
+        Catch ex As Exception
+
+        End Try
+
+    End Function
+#End Region
+
+
+    <WebMethod()>
+    Public Function GetDireccion(ByVal lat As String, ByVal lng As String) As String
+
+        GetDireccion = Nothing
+        Dim strResultados As String = ""
+        Dim url As String = "http://maps.googleapis.com/maps/api/geocode/xml?address=" & lat & "," & lng & "&sensor=false"
+        Dim status As String = ""
+        Try
+            Dim m_xmld As XmlDocument
+            Dim m_nodelist As XmlNodeList
+            Dim m_node As XmlNode
+
+            m_xmld = New XmlDocument()
+
+            m_xmld.Load(url)
+
+            m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/status")
+
+            For Each m_node In m_nodelist
+
+                status = m_node.ChildNodes.Item(0).InnerText
+                MsgBox(status)
+
+            Next
+
+            If status = "OK" Then
+
+                m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/result/formatted_address")
+
+                For Each m_node In m_nodelist
+
+                    Dim dire = m_node.ChildNodes.Item(0).InnerText
+
+                    GetDireccion = dire
+
+                Next
+
+            Else
+                GetDireccion = "0"
+
+            End If
+        Catch errorVariable As Exception
+
+            Console.Write(errorVariable.ToString())
+
+        End Try
+
+
     End Function
 
     '<WebMethod()>
@@ -325,7 +429,7 @@ Public Class Service
 
     'End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function getIncidente(ByVal cod As String, ByVal fec As String) As String
         Dim result As String = ""
         Dim connectionString As String
@@ -335,9 +439,9 @@ Public Class Service
         Try
             cnn.Open()
             Dim Reader As OdbcDataReader
-            Dim cmdString = "SELECT TOP 1 inc.HorInicial, inc.HorFinal,inc.sintoma," & _
-            "incdom.Domicilio FROM Emergency.Incidentes inc INNER JOIN " & _
-            " Emergency.IncidentesDomicilios incdom ON (inc.ID = incdom.IncidenteId)" & _
+            Dim cmdString = "Select TOP 1 inc.HorInicial, inc.HorFinal,inc.sintoma," &
+            "incdom.Domicilio FROM Emergency.Incidentes inc INNER JOIN " &
+            " Emergency.IncidentesDomicilios incdom On (inc.ID = incdom.IncidenteId)" &
             " WHERE inc.FecIncidente = '" & fec & "' AND inc.NroIncidente = '" & cod & "'"
             Dim Cmd As New OdbcCommand(cmdString, cnn)
             Reader = Cmd.ExecuteReader()
@@ -356,6 +460,7 @@ Public Class Service
 
         Return result
     End Function
+
     Public Function formatProd(prod As String) As String
 
         prod = CType(prod, Integer)
@@ -372,12 +477,12 @@ Public Class Service
     End Function
 
     '-------------> PRUEBA DE WEBSERVICE CONTRA SQL SERVER
-    <WebMethod()> _
+    <WebMethod()>
     Public Function getSerialSetLog(ByVal serialNumber As String) As String
         Return getSerialSetLogLast(serialNumber, 0)
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function getSerialSetLogLast(ByVal serialNumber As String, ByVal pRemote As Integer) As String
         Dim result As String = "0"
         Dim LicenciaId As Integer = 0
@@ -410,8 +515,8 @@ Public Class Service
                 LicenciaId = myReader("ID")
                 myReader.Close()
 
-                myCmd.CommandText = "SELECT cliLic.ID as cliLicId,CnnDataSource,CnnCatalog,CnnUser," & _
-                                    "CnnPassword,ISNULL(sit.Url,'') AS ConexionServidor,FechaDeVencimiento FROM ClientesLicencias cliLic LEFT JOIN Sitios sit ON (sit.Id = ConexionServidorId)  WHERE LicenciaID = " & _
+                myCmd.CommandText = "SELECT cliLic.ID as cliLicId,CnnDataSource,CnnCatalog,CnnUser," &
+                                    "CnnPassword,ISNULL(sit.Url,'') AS ConexionServidor,FechaDeVencimiento FROM ClientesLicencias cliLic LEFT JOIN Sitios sit ON (sit.Id = ConexionServidorId)  WHERE LicenciaID = " &
                                     LicenciaId
 
                 myReader = myCmd.ExecuteReader()
@@ -521,7 +626,7 @@ Public Class Service
 
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function isInGestion(ByVal user As String, ByVal pass As String, ByVal llave As String) As String
         Dim client = New RestClient()
         client.BaseUrl = "http://localhost:57771/"
@@ -538,7 +643,7 @@ Public Class Service
 
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function setPushNotification(license As String, mobile As String, message As String) As Boolean
 
         Dim oneSignalUrl As String = WebConfigurationManager.AppSettings.Get("oneSignalUrl")
@@ -572,7 +677,7 @@ Public Class Service
 
     End Function
 
-    <WebMethod()> _
+    <WebMethod()>
     Public Function getLicenseInfo(ByVal serialNumber As String) As List(Of LicenseInfo)
 
         getLicenseInfo = Nothing
