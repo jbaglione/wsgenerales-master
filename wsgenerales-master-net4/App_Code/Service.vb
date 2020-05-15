@@ -347,7 +347,9 @@ Public Class Service
 
         GetDireccion = Nothing
         Dim strResultados As String = ""
-        Dim url As String = "http://maps.googleapis.com/maps/api/geocode/xml?address=" & lat & "," & lng & "&sensor=false"
+        Dim googleMapsApiKey As String = Me.getGoogleMapsApiKey()
+        Dim url = googleProviderGeo & lat & "," & lng & "&sensor=false" & "&key=" & googleMapsApiKey
+
         Dim status As String = ""
         Try
             Dim m_xmld As XmlDocument
@@ -363,7 +365,7 @@ Public Class Service
             For Each m_node In m_nodelist
 
                 status = m_node.ChildNodes.Item(0).InnerText
-                MsgBox(status)
+                'MsgBox(status)
 
             Next
 
@@ -376,6 +378,7 @@ Public Class Service
                     Dim dire = m_node.ChildNodes.Item(0).InnerText
 
                     GetDireccion = dire
+                    Exit Function
 
                 Next
 
