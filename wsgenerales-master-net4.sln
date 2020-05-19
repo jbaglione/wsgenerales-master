@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "wsgenerales-master-net4", "wsgenerales-master-net4\", "{69566261-381A-4C8F-BB98-2F767D22E21A}"
 	ProjectSection(WebsiteProperties) = preProject
@@ -24,15 +24,27 @@ Project("{E24C65DC-7377-472B-9ABA-BC803B73C61A}") = "wsgenerales-master-net4", "
 		SlnRelativePath = "wsgenerales-master-net4\"
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "wsgenerales-master-csharp", "wsgenerales-master-csharp\wsgenerales-master-csharp.csproj", "{1C904A9E-E28E-45BE-9DBA-D469E1E46BF4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{69566261-381A-4C8F-BB98-2F767D22E21A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{69566261-381A-4C8F-BB98-2F767D22E21A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69566261-381A-4C8F-BB98-2F767D22E21A}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{69566261-381A-4C8F-BB98-2F767D22E21A}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{1C904A9E-E28E-45BE-9DBA-D469E1E46BF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C904A9E-E28E-45BE-9DBA-D469E1E46BF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C904A9E-E28E-45BE-9DBA-D469E1E46BF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C904A9E-E28E-45BE-9DBA-D469E1E46BF4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2CBFFC93-E410-46F0-99C0-92454B9E5A42}
 	EndGlobalSection
 EndGlobal
