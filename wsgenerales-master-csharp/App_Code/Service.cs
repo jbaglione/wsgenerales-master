@@ -322,14 +322,6 @@ namespace wsgenerales_master_csharp
                 string googleMapsApiKey = WebConfigurationManager.AppSettings.Get("googleMapsApiKey");
                 string googleMapsApiKey2 = WebConfigurationManager.AppSettings.Get("googleMapsApiKey2");
 
-                Random random = new Random();
-                int value = 0;
-
-                for (int i = 0; i < 30; i++)
-                {
-                    value = random.Next(1, 3);
-                }
-
                 switch (new Random().Next(1, 3))
                 {
                     case 1:
