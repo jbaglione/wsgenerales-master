@@ -632,8 +632,8 @@ Public Class Service
     <WebMethod()>
     Public Function isInGestion(ByVal user As String, ByVal pass As String, ByVal llave As String) As String
         Dim client = New RestClient()
-        client.BaseUrl = "http://localhost:57771/"
-
+        'client.BaseUrl = "http://localhost:57771/"
+        client.BaseUrl = "http://paramedicapps.com.ar:57771/"
         Dim request = New RestRequest()
         request.Resource = "ExternalLogin/IsInGestion"
         request.AddParameter("user", user)

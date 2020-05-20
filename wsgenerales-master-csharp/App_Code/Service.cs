@@ -7,12 +7,9 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Web.Configuration;
 using System.Web.Services;
-using System.Xml;
-using Newtonsoft.Json.Linq;
 using RestSharp;
 using wsgenerales_master_csharp.App_Code;
 using wsgenerales_master_csharp.App_Code.Maps;
@@ -40,6 +37,7 @@ namespace wsgenerales_master_csharp
         private MapsController mapsController = new MapsController();
 
         string oneSignalUrl = WebConfigurationManager.AppSettings.Get("oneSignalUrl");
+        string gestionUrl = WebConfigurationManager.AppSettings.Get("gestionUrl");
 
 
         /// <summary>
@@ -81,8 +79,8 @@ namespace wsgenerales_master_csharp
             return mapsController.GetDireccion(lat, lng);
         }
 
-        [WebMethod()]
-        public string GetIncidente(string cod, string fec)
+        //[WebMethod()]
+        public string getIncidente(string cod, string fec)
         {
             string result = "";
             string connectionString;
@@ -117,7 +115,7 @@ namespace wsgenerales_master_csharp
             return result;
         }
 
-        public string FormatProd(string prod)
+        private string FormatProd(string prod)
         {
             int prodInt = Convert.ToInt32(prod);
             if (prodInt < 10)
@@ -158,13 +156,13 @@ namespace wsgenerales_master_csharp
 
         // -------------> PRUEBA DE WEBSERVICE CONTRA SQL SERVER
         [WebMethod()]
-        public string GetSerialSetLog(string serialNumber)
+        public string getSerialSetLog(string serialNumber)
         {
-            return this.GetSerialSetLogLast(serialNumber, 0);
+            return this.getSerialSetLogLast(serialNumber, 0);
         }
 
         [WebMethod()]
-        public string GetSerialSetLogLast(string serialNumber, int pRemote)
+        public string getSerialSetLogLast(string serialNumber, int pRemote)
         {
             string result = "0";
             int LicenciaId = 0;
@@ -290,11 +288,9 @@ namespace wsgenerales_master_csharp
                                     + cnnUser + "^"
                                     + cnnPassword + "^"
                                     + prods
-                                    + prodModulos + "^" + fechaDeVencimiento;
+                                    + prodModulos + "^" + fechaDeVencimiento.ToString("d/MM/yyyy");
                     }
-
                 }
-
 
                 myConn.Close();
                 myConn.Open();
@@ -322,9 +318,9 @@ namespace wsgenerales_master_csharp
         }
 
         [WebMethod()]
-        public string IsInGestion(string user, string pass, string llave)
+        public string isInGestion(string user, string pass, string llave)
         {
-            RestClient client = new RestClient("http://localhost:57771/");
+            RestClient client = new RestClient(this.gestionUrl);
             RestRequest request = new RestRequest();
             request.Resource = "ExternalLogin/IsInGestion";
             request.AddParameter("user", user);
@@ -335,7 +331,7 @@ namespace wsgenerales_master_csharp
         }
 
         [WebMethod()]
-        public bool SetPushNotification(string license, string mobile, string message)
+        public bool setPushNotification(string license, string mobile, string message)
         {
             var request = WebRequest.Create(oneSignalUrl) as HttpWebRequest;
             if (request != null)
@@ -377,7 +373,7 @@ namespace wsgenerales_master_csharp
         }
 
         [WebMethod()]
-        public List<LicenseInfo> GetLicenseInfo(string serialNumber)
+        public List<LicenseInfo> getLicenseInfo(string serialNumber)
         {
             List<LicenseInfo> getLicenseInfo = null;
             try
