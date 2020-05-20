@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 
-namespace wsgenerales_master_csharp
+namespace wsgenerales_master_csharp.App_Code
 {
     public class LicenseInfo
     {

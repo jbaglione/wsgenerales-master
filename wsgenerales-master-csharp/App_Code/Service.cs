@@ -14,6 +14,8 @@ using System.Web.Services;
 using System.Xml;
 using Newtonsoft.Json.Linq;
 using RestSharp;
+using wsgenerales_master_csharp.App_Code;
+using wsgenerales_master_csharp.App_Code.Maps;
 
 namespace wsgenerales_master_csharp
 {
@@ -35,429 +37,52 @@ namespace wsgenerales_master_csharp
         private SqlDataReader myReaderMod;
         private SqlCommand myCmdMod;
 
-        private string googleProviderDist = WebConfigurationManager.AppSettings.Get("googleProviderDist");
-        private string hereProviderDist = WebConfigurationManager.AppSettings.Get("hereProviderDist");
-        private string googleProviderGeo = WebConfigurationManager.AppSettings.Get("googleProviderGeo");
-        private string hereProviderGeo;
+        private MapsController mapsController = new MapsController();
 
-        [WebMethod]
-        public string HelloWorld()
-        {
-            return "Hello World";
-        }
+        string oneSignalUrl = WebConfigurationManager.AppSettings.Get("oneSignalUrl");
 
-        public string GetDistanciaTiempo(string latMov, string lngMov, string latDst, string lngDst)
-        {
-            string GetDistanciaTiempo = null;
-            string url = this.GetDistUrlProvider(latMov, lngMov, latDst, lngDst);
-            if (url.Contains(googleProviderDist))
-            {
-                GetDistanciaTiempo = this.GetDistByGoogle(url);
-            }
-            else if (url.Contains(hereProviderDist))
-            {
-                GetDistanciaTiempo = this.GetDistByHere(url);
-            }
-            else
-            {
-                GetDistanciaTiempo = "0/0";
-            }
 
-            return GetDistanciaTiempo;
-        }
-
-        private string GetDistUrlProvider(string pLatMov, string pLngMov, string pLatDst, string pLngDst)
-        {
-            string GetDistUrlProvider = "";
-            try
-            {
-                // Distance
-                switch (new Random().Next(1, 3))
-                {
-                    case 1:
-                        //string strResultados = "";
-                        string googleMapsApiKey = this.getGoogleMapsApiKey();
-                        GetDistUrlProvider = googleProviderDist
-                                    + pLatMov + ","
-                                    + pLngMov + "&destinations="
-                                    + pLatDst + ","
-                                    + pLngDst + "&mode=driving&language=fr-FR&key="
-                                    + googleMapsApiKey + "&sensor=false";
-                        break;
-                    default:
-                        string hereMapsAppId = this.getHereMapsAppId();
-                        string hereMapsAppCode = this.getHereMapsAppCode();
-                        // GetDistUrlProvider = hereProviderDist & "app_id=" & hereMapsAppId & "&app_code=" & hereMapsAppCode & "&waypoint0=geo!" & pLatMov & "," & pLngMov & "&waypoint1=geo!" & pLatDst & "," & pLngDst & "&mode=fastest;car;traffic:disabled"
-                        GetDistUrlProvider = hereProviderDist + "app_id="
-                                    + hereMapsAppId + "&app_code="
-                                    + hereMapsAppCode + "&start0="
-                                    + pLatMov + ","
-                                    + pLngMov + "&destination0="
-                                    + pLatDst + ","
-                                    + pLngDst + "&mode=fastest;car;traffic:disabled&summaryAttributes=tt,di";
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-            return GetDistUrlProvider;
-        }
-
-        private string GetDistByGoogle(string url)
-        {
-            string GetDistByGoogle = null;
-            string status = "";
-            string tiempo = "";
-            string distancia = "";
-            try
-            {
-                XmlDocument m_xmld;
-                XmlNodeList m_nodelist;
-                m_xmld = new XmlDocument();
-                m_xmld.Load(url);
-                m_nodelist = m_xmld.SelectNodes("/DistanceMatrixResponse/status");
-                foreach (XmlNode m_node in m_nodelist)
-                {
-                    status = m_node.ChildNodes.Item(0).InnerText;
-                }
-
-                if (status == "OK")
-                {
-                    m_nodelist = m_xmld.SelectNodes("/DistanceMatrixResponse/row/element/duration/text");
-                    foreach (XmlNode m_node in m_nodelist)
-                    {
-                        tiempo = m_node.ChildNodes.Item(0).InnerText;
-                    }
-
-                    m_nodelist = m_xmld.SelectNodes("/DistanceMatrixResponse/row/element/distance/text");
-                    foreach (XmlNode m_node in m_nodelist)
-                    {
-                        distancia = m_node.ChildNodes.Item(0).InnerText;
-                    }
-
-                    GetDistByGoogle = distancia + "/" + tiempo;
-                }
-                else
-                {
-                    GetDistByGoogle = "0/0";
-                }
-
-            }
-            catch (Exception errorVariable)
-            {
-                Console.Write(errorVariable.ToString());
-            }
-            return GetDistByGoogle;
-        }
-
-        private string GetDistByHere(string url)
-        {
-            string GetDistByHere;
-            HttpWebRequest request;
-            HttpWebResponse response = null;
-
-            try
-            {
-                request = WebRequest.Create(url) as HttpWebRequest;
-                response = request.GetResponse() as HttpWebResponse;
-
-                WebHeaderCollection header = response.Headers;
-
-                var encoding = ASCIIEncoding.ASCII;
-                using (StreamReader reader = new StreamReader(response.GetResponseStream(), encoding))
-                {
-                    string rawresp = reader.ReadToEnd();
-
-                    JToken outer = JToken.Parse(rawresp);
-                    JObject inner = outer["response"].ToObject<JObject>();
-                    List<JToken> matrixEntry = inner["matrixEntry"].ToList();
-                    JToken summary = matrixEntry[0]["summary"];
-                    JToken distance = summary["distance"];
-                    JToken travelTime = summary["travelTime"];
-                    string dist = Math.Round(Convert.ToDecimal(distance) / 1000, 2).ToString() + " km";
-                    string time = Math.Round(Convert.ToDecimal(travelTime) / 60, 0).ToString() + " minutes";
-                    GetDistByHere = dist + "/" + time;
-                }
-            }
-            catch (WebException ex)
-            {
-                GetDistByHere = "0/0";
-            }
-            return GetDistByHere;
-
-        }
-
+        /// <summary>
+        /// Obtener latitud y longitud de una dirección.
+        /// </summary>
+        /// <param name="direccion">Ej: Antártida Argentina 5872, B1665HWK José C.Paz, Buenos Aires</param>
+        /// <returns>            
+        /// <string xmlns="http://tempuri.org/">-34.5263803/-58.7664836</string>
+        ///</returns>
         [WebMethod()]
         public string GetLatLong(string direccion)
         {
-            string GetLatLong = null;
-            string url = this.GetGeoUrlProvider(direccion);
-            if (url.Contains(googleProviderGeo))
-            {
-                GetLatLong = this.GetGeoByGoogle(url);
-            }
-            else if (url.Contains(hereProviderGeo))
-            {
-                GetLatLong = this.GetGeoByHere(url);
-            }
-            else
-            {
-                GetLatLong = "0/0";
-            }
-
-            return GetLatLong;
+            return mapsController.GetLatLong(direccion);
         }
 
-        private string GetGeoUrlProvider(string pDireccion)
+        /// <summary>
+        /// Obtener la distancia y el tiempo desde un punto del mapa a otro.
+        /// </summary>
+        /// <param name="latMov">Latitud origen</param>
+        /// <param name="lngMov">Longitud origen</param>
+        /// <param name="latDst">Latitud destino</param>
+        /// <param name="lngDst">Longitud destino</param>
+        /// <returns>EJ: <string xmlns="http://tempuri.org/">13,28 km/22 minutes</string></returns>
+        [WebMethod()]
+        public string GetDistanciaTiempo(string latMov, string lngMov, string latDst, string lngDst)
         {
-            string GetGeoUrlProvider = "";
-            try
-            {
-                switch (new Random().Next(1, 3))
-                {
-                    case 1:
-                        //string strResultados = "";
-                        string googleMapsApiKey = this.getGoogleMapsApiKey();
-                        GetGeoUrlProvider = googleProviderGeo
-                                            + pDireccion + "&key="
-                                            + googleMapsApiKey + "&sensor=false";
-                        break;
-                    default:
-                        string hereMapsAppId = this.getHereMapsAppId();
-                        string hereMapsAppCode = this.getHereMapsAppCode();
-                        GetGeoUrlProvider = hereProviderGeo + "app_id="
-                                    + hereMapsAppId + "&app_code="
-                                    + hereMapsAppCode + "&searchtext=" + pDireccion;
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-            return GetGeoUrlProvider;
+            return mapsController.GetDistanciaTiempo(latMov, lngMov, latDst, lngDst);
         }
 
-        private string GetGeoByHere(string url)
-        {
-            string GetGeoByHere = "";
-            HttpWebRequest request;
-            HttpWebResponse response = null;
-
-            try
-            {
-                request = WebRequest.Create(url) as HttpWebRequest;
-                response = request.GetResponse() as HttpWebResponse;
-
-                WebHeaderCollection header = response.Headers;
-
-                var encoding = ASCIIEncoding.ASCII;
-                using (StreamReader reader = new StreamReader(response.GetResponseStream(), encoding))
-                {
-                    string rawresp = reader.ReadToEnd();
-
-                    JToken outer = JToken.Parse(rawresp);
-                    JObject inner = outer["response"].ToObject<JObject>();
-                    List<JToken> view = inner["View"].ToList();
-                    JToken result = view[0]["Result"];
-                    JToken location = result[0]["Location"];
-                    JToken navigationPosition = location["NavigationPosition"];
-                    JToken latitude = navigationPosition[0]["Latitude"];
-                    JToken longitude = navigationPosition[0]["Longitude"];
-                    GetGeoByHere = latitude.ToString() + "/" + longitude.ToString();
-                }
-            }
-            catch (WebException ex)
-            {
-                GetGeoByHere = "0/0";
-            }
-            return GetGeoByHere;
-        }
-
-        private string GetGeoByGoogle(string url)
-        {
-            string GetLatLong = "";
-            try
-            {
-                XmlTextReader reader = new XmlTextReader(url);
-                string status = "";
-                XmlDocument m_xmld;
-                XmlNodeList m_nodelist;
-                m_xmld = new XmlDocument();
-                m_xmld.Load(url);
-                m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/status");
-                foreach (XmlNode m_node in m_nodelist)
-                {
-                    status = m_node.ChildNodes[0].InnerText;
-                }
-
-                if (status == "OK")
-                {
-                    m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/result/geometry/location");
-                    foreach (XmlNode m_node in m_nodelist)
-                    {
-                        object lat = m_node.ChildNodes[0].InnerText;
-                        object lng = m_node.ChildNodes[1].InnerText;
-                        GetLatLong = lat + "/" + lng;
-                    }
-                }
-                else
-                {
-                    GetLatLong = "0/0";
-                }
-            }
-            catch (Exception errorVariable)
-            {
-                Console.Write(errorVariable.ToString());
-            }
-
-            return GetLatLong;
-        }
-
-        private string getGoogleMapsApiKey()
-        {
-            string getGoogleMapsApiKey = "";
-            try
-            {
-                string googleMapsApiKey = WebConfigurationManager.AppSettings.Get("googleMapsApiKey");
-                string googleMapsApiKey2 = WebConfigurationManager.AppSettings.Get("googleMapsApiKey2");
-
-                switch (new Random().Next(1, 3))
-                {
-                    case 1:
-                        getGoogleMapsApiKey = googleMapsApiKey;
-                        break;
-                    case 2:
-                        getGoogleMapsApiKey = googleMapsApiKey2;
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-
-            return getGoogleMapsApiKey;
-        }
-
-        private string getHereMapsAppId()
-        {
-            string getHereMapsAppId = "";
-            try
-            {
-                string hereMapsAppId = WebConfigurationManager.AppSettings.Get("hereMapsAppId");
-                string hereMapsAppId2 = WebConfigurationManager.AppSettings.Get("hereMapsAppId2");
-
-                switch (new Random().Next(1, 3))
-                {
-                    case 1:
-                        getHereMapsAppId = hereMapsAppId;
-                        break;
-                    case 2:
-                        getHereMapsAppId = hereMapsAppId2;
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-            return getHereMapsAppId;
-
-        }
-
-        private string getHereMapsAppCode()
-        {
-            string getHereMapsAppCode = "";
-            try
-            {
-                string hereMapsAppCode = WebConfigurationManager.AppSettings.Get("hereMapsAppCode");
-                string hereMapsAppCode2 = WebConfigurationManager.AppSettings.Get("hereMapsAppCode2");
-
-                switch (new Random().Next(1, 3))
-                {
-                    case 1:
-                        getHereMapsAppCode = hereMapsAppCode;
-                        break;
-                    case 2:
-                        getHereMapsAppCode = hereMapsAppCode2;
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-            return getHereMapsAppCode;
-        }
-
+        /// <summary>
+        /// Obtener la dirección de un punto en el mapa.
+        /// </summary>
+        /// <param name="lat">Latitud</param>
+        /// <param name="lng">Longitud</param>
+        /// <returns><string xmlns="http://tempuri.org/">José A.Terry 346, C1406 CHD, Buenos Aires, Argentina</string></returns>
         [WebMethod()]
         public string GetDireccion(string lat, string lng)
         {
-            string GetDireccion = null;
-            //string strResultados = "";
-            string googleMapsApiKey = this.getGoogleMapsApiKey();
-            string url = googleProviderGeo + lat + "," + lng + "&sensor=false" + "&key=" + googleMapsApiKey;
-
-            string status = "";
-            try
-            {
-                XmlDocument m_xmld;
-                XmlNodeList m_nodelist;
-
-                m_xmld = new XmlDocument();
-                m_xmld.Load(url);
-                m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/status");
-                foreach (XmlNode m_node in m_nodelist)
-                {
-                    status = m_node.ChildNodes[0].InnerText;
-                    // MsgBox(status)
-                }
-
-                if (status == "OK")
-                {
-                    m_nodelist = m_xmld.SelectNodes("/GeocodeResponse/result/formatted_address");
-                    foreach (XmlNode m_node in m_nodelist)
-                    {
-                        string dire = m_node.ChildNodes[0].InnerText;
-                        return dire;
-                    }
-                }
-                else
-                {
-                    GetDireccion = "0";
-                }
-
-            }
-            catch (Exception errorVariable)
-            {
-                Console.Write(errorVariable.ToString());
-            }
-
-            return GetDireccion;
+            return mapsController.GetDireccion(lat, lng);
         }
 
-        // <WebMethod()>
-        // Public Function GetPuntosEnPoligono(ByVal pLat As Single, ByVal pLon As Single, ByVal pTip As String) As String
-        //     GetPuntosEnPoligono = ""
-        //     Dim shmSession As New PanelC.Conexion
-        //     Dim vNeedClose As Boolean = False
-        //     Try
-        //         Dim objZonas As New CompuMapC.Zonificaciones
-        //         If shmSession.Iniciar("192.168.0.249", 1972, "SHAMAN", "EMERGENCIAS", "JOB", 1, True) Then
-        //             vNeedClose = True
-        //             Dim vDev As String = objZonas.GetPoligonosInPoint(pLat, pLon, pTip, True)
-        //             GetPuntosEnPoligono = vDev
-        //         Else
-        //             GetPuntosEnPoligono = "Sin conexi�n"
-        //         End If
-        //         If vNeedClose Then
-        //             shmSession.Cerrar(shmSession.PID, True)
-        //         End If
-        //     Catch ex As Exception
-        //         GetPuntosEnPoligono = ex.Message
-        //     End Try
-        // End Function
-
         [WebMethod()]
-        public string getIncidente(string cod, string fec)
+        public string GetIncidente(string cod, string fec)
         {
             string result = "";
             string connectionString;
@@ -492,7 +117,7 @@ namespace wsgenerales_master_csharp
             return result;
         }
 
-        public string formatProd(string prod)
+        public string FormatProd(string prod)
         {
             int prodInt = Convert.ToInt32(prod);
             if (prodInt < 10)
@@ -509,15 +134,37 @@ namespace wsgenerales_master_csharp
             }
         }
 
+        // <WebMethod()>
+        // Public Function GetPuntosEnPoligono(ByVal pLat As Single, ByVal pLon As Single, ByVal pTip As String) As String
+        //     GetPuntosEnPoligono = ""
+        //     Dim shmSession As New PanelC.Conexion
+        //     Dim vNeedClose As Boolean = False
+        //     Try
+        //         Dim objZonas As New CompuMapC.Zonificaciones
+        //         If shmSession.Iniciar("192.168.0.249", 1972, "SHAMAN", "EMERGENCIAS", "JOB", 1, True) Then
+        //             vNeedClose = True
+        //             Dim vDev As String = objZonas.GetPoligonosInPoint(pLat, pLon, pTip, True)
+        //             GetPuntosEnPoligono = vDev
+        //         Else
+        //             GetPuntosEnPoligono = "Sin conexi�n"
+        //         End If
+        //         If vNeedClose Then
+        //             shmSession.Cerrar(shmSession.PID, True)
+        //         End If
+        //     Catch ex As Exception
+        //         GetPuntosEnPoligono = ex.Message
+        //     End Try
+        // End Function
+
         // -------------> PRUEBA DE WEBSERVICE CONTRA SQL SERVER
         [WebMethod()]
-        public string getSerialSetLog(string serialNumber)
+        public string GetSerialSetLog(string serialNumber)
         {
-            return this.getSerialSetLogLast(serialNumber, 0);
+            return this.GetSerialSetLogLast(serialNumber, 0);
         }
 
         [WebMethod()]
-        public string getSerialSetLogLast(string serialNumber, int pRemote)
+        public string GetSerialSetLogLast(string serialNumber, int pRemote)
         {
             string result = "0";
             int LicenciaId = 0;
@@ -589,7 +236,7 @@ namespace wsgenerales_master_csharp
                             while (myReaderMod.Read())
                             {
                                 string modulo = myReaderMod["MODULOEXC"].ToString();
-                                prod = this.formatProd(prod);
+                                prod = this.FormatProd(prod);
                                 string prodMod = (prod + modulo);
                                 vMod.Add(prodMod);
                             }
@@ -674,9 +321,8 @@ namespace wsgenerales_master_csharp
 
         }
 
-
         [WebMethod()]
-        public string isInGestion(string user, string pass, string llave)
+        public string IsInGestion(string user, string pass, string llave)
         {
             RestClient client = new RestClient("http://localhost:57771/");
             RestRequest request = new RestRequest();
@@ -689,10 +335,8 @@ namespace wsgenerales_master_csharp
         }
 
         [WebMethod()]
-        public bool setPushNotification(string license, string mobile, string message)
+        public bool SetPushNotification(string license, string mobile, string message)
         {
-            string oneSignalUrl = WebConfigurationManager.AppSettings.Get("oneSignalUrl");
-
             var request = WebRequest.Create(oneSignalUrl) as HttpWebRequest;
             if (request != null)
             {
@@ -732,10 +376,8 @@ namespace wsgenerales_master_csharp
             return false;
         }
 
-        private WebException ex;
-
         [WebMethod()]
-        public List<LicenseInfo> getLicenseInfo(string serialNumber)
+        public List<LicenseInfo> GetLicenseInfo(string serialNumber)
         {
             List<LicenseInfo> getLicenseInfo = null;
             try

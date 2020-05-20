@@ -81,6 +81,10 @@
       <SubType>Component</SubType>
     </Content>
     <Content Include="App_Code\LicenceInfo.cs" />
+    <Content Include="App_Code\Maps\HereMapsNew.cs" />
+    <Content Include="App_Code\Maps\HereMaps.cs" />
+    <Content Include="App_Code\Maps\GoogleMaps.cs" />
+    <Content Include="App_Code\Maps\MapsController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
